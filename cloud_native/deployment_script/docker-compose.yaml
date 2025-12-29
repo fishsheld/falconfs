@@ -1,0 +1,207 @@
+version: "3.8"
+
+x-falcon-env: &falcon-env
+  POD_NAMESPACE: falconfs
+  zk_endpoint: zk-1:2181,zk-2:2181,zk-3:2181
+  cluster_name: "/falcon"
+  STORAGE_THRESHOLD: "0.9"
+  BRPC_PORT: "50039"
+  wait_replica_time: "600"
+  data_dir: "/home/falconMeta/data"
+  cn_num: "3"
+  cn_sup_num: "0"
+  dn_num: "3"
+  dn_sup_num: "0"
+
+x-falcon-common: &falcon-common
+  privileged: true
+  restart: unless-stopped
+  stop_grace_period: 30s
+  networks:
+    - falcon-net
+
+x-falcon-healthcheck: &falcon-healthcheck
+  test: ["CMD-SHELL", "bash /home/falconMeta/check_liveness.sh"]
+  interval: 20s
+  timeout: 20s
+  retries: 3
+  start_period: 10s
+
+services:
+  zk1:
+    image: zookeeper:3.8.3
+    container_name: falcon-zk-1
+    hostname: zk-1
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zk-1:2888:3888;2181 server.2=zk-2:2888:3888;2181 server.3=zk-3:2888:3888;2181
+    ports:
+      - "2181:2181"
+    volumes:
+      - /mnt/falcon-data/zk-1/data:/data
+      - /mnt/falcon-data/zk-1/datalog:/datalog
+
+  zk2:
+    image: zookeeper:3.8.3
+    container_name: falcon-zk-2
+    hostname: zk-2
+    environment:
+      ZOO_MY_ID: 2
+      ZOO_SERVERS: server.1=zk-1:2888:3888;2181 server.2=zk-2:2888:3888;2181 server.3=zk-3:2888:3888;2181
+    ports:
+      - "2182:2181"
+    volumes:
+      - /mnt/falcon-data/zk-2/data:/data
+      - /mnt/falcon-data/zk-2/datalog:/datalog
+
+  zk3:
+    image: zookeeper:3.8.3
+    container_name: falcon-zk-3
+    hostname: zk-3
+    environment:
+      ZOO_MY_ID: 3
+      ZOO_SERVERS: server.1=zk-1:2888:3888;2181 server.2=zk-2:2888:3888;2181 server.3=zk-3:2888:3888;2181
+    ports:
+      - "2183:2181"
+    volumes:
+      - /mnt/falcon-data/zk-3/data:/data
+      - /mnt/falcon-data/zk-3/datalog:/datalog
+
+  cn1:
+    <<: *falcon-common
+    image: cd-docker-hub.szxy5.artifactory.cd-cloud-artifact.tools.huawei.com/driveinsight/falcon-cn-arm:2.0.6
+    container_name: falcon-cn-1
+    hostname: cn-1
+    environment:
+      <<: *falcon-env
+      NODE_NAME: cn-1
+      NODE_IP: cn-1
+      POD_NAME: falcon-cn-1
+      POD_IP: cn-1
+    volumes:
+      - /mnt/falcon-data/cn-1/data:/home/falconMeta/data
+    ports:
+      - "5435:5432"
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+      - dn1
+      - dn2
+      - dn3
+    healthcheck: *falcon-healthcheck
+
+  cn2:
+    <<: *falcon-common
+    image: cd-docker-hub.szxy5.artifactory.cd-cloud-artifact.tools.huawei.com/driveinsight/falcon-cn-arm:2.0.6
+    container_name: falcon-cn-2
+    hostname: cn-2
+    environment:
+      <<: *falcon-env
+      NODE_NAME: cn-2
+      NODE_IP: cn-2
+      POD_NAME: falcon-cn-2
+      POD_IP: cn-2
+    volumes:
+      - /mnt/falcon-data/cn-2/data:/home/falconMeta/data
+    ports:
+      - "5436:5432"
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+      - dn1
+      - dn2
+      - dn3
+    healthcheck: *falcon-healthcheck
+
+  cn3:
+    <<: *falcon-common
+    image: cd-docker-hub.szxy5.artifactory.cd-cloud-artifact.tools.huawei.com/driveinsight/falcon-cn-arm:2.0.6
+    container_name: falcon-cn-3
+    hostname: cn-3
+    environment:
+      <<: *falcon-env
+      NODE_NAME: cn-3
+      NODE_IP: cn-3
+      POD_NAME: falcon-cn-3
+      POD_IP: cn-3
+    volumes:
+      - /mnt/falcon-data/cn-3/data:/home/falconMeta/data
+    ports:
+      - "5437:5432"
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+      - dn1
+      - dn2
+      - dn3
+    healthcheck: *falcon-healthcheck
+
+  dn1:
+    <<: *falcon-common
+    image: cd-docker-hub.szxy5.artifactory.cd-cloud-artifact.tools.huawei.com/driveinsight/falcon-dn-arm:2.0.6
+    container_name: falcon-dn-1
+    hostname: dn-1
+    environment:
+      <<: *falcon-env
+      NODE_NAME: dn-1
+      NODE_IP: dn-1
+      POD_NAME: falcon-dn-1
+      POD_IP: dn-1
+    volumes:
+      - /mnt/falcon-data/dn-1/data:/home/falconMeta/data
+    ports:
+      - "5432:5432"
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+    healthcheck: *falcon-healthcheck
+
+  dn2:
+    <<: *falcon-common
+    image: cd-docker-hub.szxy5.artifactory.cd-cloud-artifact.tools.huawei.com/driveinsight/falcon-dn-arm:2.0.6
+    container_name: falcon-dn-2
+    hostname: dn-2
+    environment:
+      <<: *falcon-env
+      NODE_NAME: dn-2
+      NODE_IP: dn-2
+      POD_NAME: falcon-dn-2
+      POD_IP: dn-2
+    volumes:
+      - /mnt/falcon-data/dn-2/data:/home/falconMeta/data
+    ports:
+      - "5433:5432"
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+    healthcheck: *falcon-healthcheck
+
+  dn3:
+    <<: *falcon-common
+    image: cd-docker-hub.szxy5.artifactory.cd-cloud-artifact.tools.huawei.com/driveinsight/falcon-dn-arm:2.0.6
+    container_name: falcon-dn-3
+    hostname: dn-3
+    environment:
+      <<: *falcon-env
+      NODE_NAME: dn-3
+      NODE_IP: dn-3
+      POD_NAME: falcon-dn-3
+      POD_IP: dn-3
+    volumes:
+      - /mnt/falcon-data/dn-3/data:/home/falconMeta/data
+    ports:
+      - "5434:5432"
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+    healthcheck: *falcon-healthcheck
+
+networks:
+  falcon-net:
+    driver: bridge
